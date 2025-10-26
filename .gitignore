@@ -31,6 +31,7 @@ dist/
 dist
 
 # Environment files (comprehensive coverage)
+<<<<<<< HEAD
 .env
 .env.local
 .env.development
@@ -38,6 +39,8 @@ dist
 .env.production
 frontend/.env
 backend/.env
+=======
+>>>>>>> 285a861e64433230c2995fc3476a647205a444b0
 
 *token.json*
 *credentials.json*

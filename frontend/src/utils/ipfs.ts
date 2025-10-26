@@ -1,13 +1,21 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+<<<<<<< HEAD
 // Environment variables - Use process.env for Create React App
 const PINATA_API_KEY = process.env.REACT_APP_PINATA_API_KEY || '';
 const PINATA_SECRET_KEY = process.env.REACT_APP_PINATA_SECRET_KEY || '';
+=======
+// Environment variables with fallbacks
+const PINATA_API_KEY = import.meta.env.VITE_PINATA_API_KEY || '';
+const PINATA_SECRET_KEY = import.meta.env.VITE_PINATA_SECRET_KEY || '';
+const PINATA_JWT = import.meta.env.VITE_PINATA_JWT || '';
+>>>>>>> 285a861e64433230c2995fc3476a647205a444b0
 
 // Check if Pinata is configured
 const isPinataConfigured = PINATA_API_KEY && PINATA_SECRET_KEY;
 
+<<<<<<< HEAD
 // Log configuration status in development
 if (process.env.NODE_ENV === 'development') {
   console.log('🔧 Pinata Configuration:', {
@@ -19,6 +27,8 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
+=======
+>>>>>>> 285a861e64433230c2995fc3476a647205a444b0
 const PINATA_API_URL = 'https://api.pinata.cloud';
 const PINATA_GATEWAY = 'https://gateway.pinata.cloud/ipfs/';
 
@@ -41,6 +51,7 @@ export const uploadToIPFS = async (
   file: File,
   onProgress?: (progress: UploadProgress) => void
 ): Promise<IPFSUploadResult> => {
+<<<<<<< HEAD
   // Check if Pinata is configured
   if (!isPinataConfigured) {
     console.error('❌ Pinata not configured! Please add API keys to .env file');
@@ -68,6 +79,25 @@ export const uploadToIPFS = async (
     }
     
     throw new Error('Pinata not configured. Please add API credentials to .env file');
+=======
+  // In development without Pinata, return a mock response
+  if (process.env.NODE_ENV === 'development' && !isPinataConfigured) {
+    console.warn('⚠️ Pinata credentials not found. Using mock IPFS upload.');
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const mockHash = `mock-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const result = {
+          ipfsHash: mockHash,
+          pinSize: file.size,
+          timestamp: new Date().toISOString(),
+          url: `https://mock-ipfs.io/ipfs/${mockHash}`,
+        };
+        console.log('Mock IPFS Upload:', result);
+        onProgress?.({ percentage: 100, status: 'complete' });
+        resolve(result);
+      }, 1000);
+    });
+>>>>>>> 285a861e64433230c2995fc3476a647205a444b0
   }
   try {
     // Validate file
@@ -340,12 +370,20 @@ export const formatFileSize = (bytes: number): string => {
 /**
  * Check if Pinata is configured
  */
+<<<<<<< HEAD
 export const checkPinataConfigured = (): boolean => {
+=======
+export const isPinataConfigured = (): boolean => {
+>>>>>>> 285a861e64433230c2995fc3476a647205a444b0
   return !!(PINATA_API_KEY && PINATA_SECRET_KEY);
 };
 
 export const getIPFSConfigStatus = () => ({
+<<<<<<< HEAD
   isConfigured: checkPinataConfigured(),
+=======
+  isConfigured: isPinataConfigured(),
+>>>>>>> 285a861e64433230c2995fc3476a647205a444b0
   hasApiKey: !!PINATA_API_KEY,
   hasSecretKey: !!PINATA_SECRET_KEY,
   isDevelopment: process.env.NODE_ENV === 'development',
