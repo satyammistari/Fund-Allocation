@@ -8,8 +8,9 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { ArrowLeft, Loader2, Upload, X, FileText, Image as ImageIcon, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
+import { uploadMultipleToIPFS } from '../utils/ipfs';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 const API = `${BACKEND_URL}/api`;
 
 const CreateProject = ({ account, signer }) => {
@@ -50,32 +51,40 @@ const CreateProject = ({ account, signer }) => {
   };
 
   const handleFileUpload = async (e, fileType) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    // Simulate IPFS upload (in production, use actual IPFS)
-    const simulatedIPFSHashes = files.map((file, index) => ({
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      ipfsHash: `Qm${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`,
-      url: URL.createObjectURL(file),
-      uploadedAt: new Date().toISOString()
-    }));
+    try {
+      toast.info(`Uploading ${files.length} file(s)...`);
+      const results = await uploadMultipleToIPFS(files);
+      const uploaded = results.map((result, index) => ({
+        name: files[index].name,
+        size: files[index].size,
+        type: files[index].type,
+        ipfsHash: result.ipfsHash,
+        url: result.url || URL.createObjectURL(files[index]),
+        uploadedAt: result.timestamp || new Date().toISOString()
+      }));
 
-    setUploadedFiles(prev => ({
-      ...prev,
-      [fileType]: [...prev[fileType], ...simulatedIPFSHashes]
-    }));
+      setUploadedFiles(prev => ({
+        ...prev,
+        [fileType]: [...prev[fileType], ...uploaded]
+      }));
 
-    setFilePreviews(prev => ({
-      ...prev,
-      [fileType]: [...prev[fileType], ...simulatedIPFSHashes]
-    }));
+      setFilePreviews(prev => ({
+        ...prev,
+        [fileType]: [...prev[fileType], ...uploaded]
+      }));
 
-    toast.success(`${files.length} file(s) uploaded successfully!`, {
-      description: 'Files uploaded to IPFS'
-    });
+      toast.success(`${files.length} file(s) uploaded successfully!`, {
+        description: 'Files stored on IPFS'
+      });
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Failed to upload documents');
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const removeFile = (fileType, index) => {

@@ -12,7 +12,7 @@ import Login from './components/Login';
 import Header from './components/Header';
 import { Toaster } from './components/ui/sonner';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 const API = `${BACKEND_URL}/api`;
 
 function App() {
@@ -60,7 +60,6 @@ function App() {
 
     try {
       setIsConnecting(true);
-<<<<<<< HEAD
       
       // FIXED: Use ethers v5 API - providers.Web3Provider instead of BrowserProvider
       const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
@@ -70,12 +69,6 @@ function App() {
       
       // Get signer and address
       const web3Signer = web3Provider.getSigner();
-=======
-      const web3Provider = new ethers.BrowserProvider(window.ethereum);
-      await window.ethereum.request({ method: 'eth_requestAccounts' });
-      
-      const web3Signer = await web3Provider.getSigner();
->>>>>>> 285a861e64433230c2995fc3476a647205a444b0
       const address = await web3Signer.getAddress();
       const network = await web3Provider.getNetwork();
 
@@ -84,7 +77,6 @@ function App() {
       setAccount(address);
       setChainId(Number(network.chainId));
 
-<<<<<<< HEAD
       console.log('✅ Wallet connected:', address);
       console.log('📡 Network:', network.name, '(Chain ID:', network.chainId, ')');
 
@@ -104,16 +96,6 @@ function App() {
       } else {
         alert('Failed to connect wallet: ' + error.message);
       }
-=======
-      // Check if on Mumbai testnet
-      if (Number(network.chainId) !== 80001) {
-        alert('Please switch to Polygon Mumbai testnet');
-        await switchToMumbai();
-      }
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
-      alert('Failed to connect wallet');
->>>>>>> 285a861e64433230c2995fc3476a647205a444b0
     } finally {
       setIsConnecting(false);
     }

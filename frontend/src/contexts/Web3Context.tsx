@@ -230,7 +230,7 @@ export const Web3Provider: React.FC<Web3ProviderProps> = ({ children }) => {
           disconnectWallet();
         } else {
           setAccount(accounts[0]);
-          toast.info('Account changed');
+          toast('Account changed');
           // Reconnect to update balance and contracts
           connectWallet();
         }

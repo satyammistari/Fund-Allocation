@@ -19,8 +19,9 @@ import {
   Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { uploadMultipleToIPFS } from '../utils/ipfs';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:5000';
 const API = `${BACKEND_URL}/api`;
 
 const MilestoneTracker = ({ projectId, contractorAddress }) => {
@@ -80,25 +81,28 @@ const MilestoneTracker = ({ projectId, contractorAddress }) => {
   };
 
   const handleFileUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    
-    const newFiles = await Promise.all(
-      files.map(async (file) => {
-        // Simulate IPFS upload
-        const ipfsHash = `Qm${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-        
-        return {
-          name: file.name,
-          size: `${(file.size / 1024).toFixed(2)} KB`,
-          ipfsHash: ipfsHash,
-          url: URL.createObjectURL(file),
-          type: file.type.startsWith('image/') ? 'image' : 'document'
-        };
-      })
-    );
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-    setSubmissionFiles([...submissionFiles, ...newFiles]);
-    toast.success(`${files.length} file(s) uploaded successfully`);
+    try {
+      toast.info(`Uploading ${files.length} file(s)...`);
+      const results = await uploadMultipleToIPFS(files);
+      const newFiles = results.map((result, index) => ({
+        name: files[index].name,
+        size: `${(files[index].size / 1024).toFixed(2)} KB`,
+        ipfsHash: result.ipfsHash,
+        url: result.url || URL.createObjectURL(files[index]),
+        type: files[index].type.startsWith('image/') ? 'image' : 'document'
+      }));
+
+      setSubmissionFiles([...submissionFiles, ...newFiles]);
+      toast.success(`${files.length} file(s) uploaded successfully`);
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(error.message || 'Failed to upload documents');
+    } finally {
+      e.target.value = '';
+    }
   };
 
   const removeFile = (index) => {
