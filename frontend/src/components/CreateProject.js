@@ -120,17 +120,69 @@ const CreateProject = ({ account, signer }) => {
     try {
       setLoading(true);
 
-      // For MVP, we'll create a simulated transaction hash
-      const simulatedTxHash = '0x' + Array.from({ length: 64 }, () => 
-        Math.floor(Math.random() * 16).toString(16)
-      ).join('');
+      let txHash = null;
+      let contractProjectId = Math.floor(Math.random() * 10000);
 
-      toast.info(sendToSupervisor ? 'Creating project and sending to supervisor...' : 'Creating project on blockchain...');
+      // ── Real blockchain transaction (if wallet connected) ──
+      if (signer) {
+        try {
+          const contractAddressData = await fetch('/contractAddress.json').then(r => r.json());
+          const contractABIData = await fetch('/contractABI.json').then(r => r.json());
+          const { ethers } = await import('ethers');
 
-      // Simulate blockchain transaction delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+          const contract = new ethers.Contract(
+            contractAddressData.contractAddress,
+            contractABIData,
+            signer
+          );
 
-      // Create project in backend
+          // supervisorCommitment: hash of supervisor address (or zero bytes for demo)
+          const supervisorCommitment = ethers.utils.formatBytes32String('supervisor_commit');
+          const budgetInWei = ethers.utils.parseEther(
+            (parseFloat(formData.budget) / 1e6).toFixed(18) // treat budget as USD, use small ETH value
+          );
+
+          toast.info('Confirm the transaction in MetaMask…');
+
+          const tx = await contract.createProject(
+            formData.name,
+            budgetInWei,
+            supervisorCommitment,
+            formData.location
+          );
+
+          toast.info('Transaction submitted — waiting for confirmation…', { duration: 8000 });
+          const receipt = await tx.wait();
+          txHash = receipt.transactionHash;
+          contractProjectId = receipt.events?.[0]?.args?.projectId?.toNumber() ?? contractProjectId;
+
+          toast.success('✅ Transaction confirmed on blockchain!', {
+            description: `Block #${receipt.blockNumber} · Tx: ${txHash.slice(0, 20)}…`,
+          });
+        } catch (contractError) {
+          console.error('Contract call failed:', contractError);
+          if (contractError.code === 4001) {
+            toast.error('Transaction rejected in MetaMask');
+            return;
+          }
+          // Fallback to simulated tx if contract call fails (e.g. wrong network)
+          toast.warning('Contract call failed — using simulated transaction for demo', {
+            description: contractError.message?.slice(0, 80)
+          });
+          txHash = '0x' + Array.from({ length: 64 }, () =>
+            Math.floor(Math.random() * 16).toString(16)
+          ).join('');
+        }
+      } else {
+        // No wallet — simulated mode
+        toast.info(sendToSupervisor ? 'Creating project (demo mode)…' : 'Creating project on blockchain…');
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        txHash = '0x' + Array.from({ length: 64 }, () =>
+          Math.floor(Math.random() * 16).toString(16)
+        ).join('');
+      }
+
+      // ── Save to backend ──
       const response = await axios.post(`${API}/projects`, {
         name: formData.name,
         description: formData.description,
@@ -143,8 +195,8 @@ const CreateProject = ({ account, signer }) => {
         milestones: formData.milestones,
         documents: formData.documents,
         manager_address: account || '0xDemo',
-        tx_hash: simulatedTxHash,
-        contract_project_id: Math.floor(Math.random() * 10000),
+        tx_hash: txHash,
+        contract_project_id: contractProjectId,
         tender_documents: uploadedFiles.tenderDocuments,
         design_files: uploadedFiles.designFiles,
         geo_tagged_photos: uploadedFiles.geoTaggedPhotos,
@@ -155,60 +207,46 @@ const CreateProject = ({ account, signer }) => {
       });
 
       if (sendToSupervisor) {
-        // Send anonymous tender to supervisor
         await axios.post(`${API}/supervisor/tenders`, {
           project_id: response.data.id,
           tender_documents: uploadedFiles.tenderDocuments,
           design_files: uploadedFiles.designFiles,
           geo_tagged_photos: uploadedFiles.geoTaggedPhotos,
-          tx_hash: simulatedTxHash,
+          tx_hash: txHash,
           budget: parseFloat(formData.budget),
           location: formData.location,
           category: formData.category,
           description: formData.description,
-          // Contractor name is NOT sent to supervisor (anonymous)
         });
 
         toast.success('Project created and sent to supervisor for approval!', {
           description: 'Supervisor will review tender documents anonymously'
         });
       } else {
-        toast.success('Project created successfully!', {
-          description: 'Redirecting to Polygonscan...'
-        });
+        toast.success('Project created successfully!');
       }
-      
-      // Redirect to Polygonscan (or demo page in DEMO mode)
-      const polygonscanUrl = `https://polygonscan.com/tx/${simulatedTxHash}`;
-      
-      // Show modal with Polygonscan link
+
+      // Show tx hash
       toast.success(
-        <div className="space-y-2">
-          <p>View on Polygonscan:</p>
-          <a 
-            href={polygonscanUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:underline text-sm break-all"
-          >
-            {simulatedTxHash}
-          </a>
+        <div className="space-y-1">
+          <p className="font-medium">Transaction Hash:</p>
+          <p className="text-xs font-mono break-all text-blue-400">{txHash}</p>
         </div>,
-        { duration: 10000 }
+        { duration: 12000 }
       );
-      
-      // Navigate to project details after short delay
+
       setTimeout(() => {
         navigate(`/project/${response.data.id}`);
       }, 2000);
-      
+
     } catch (error) {
       console.error('Error creating project:', error);
-      toast.error('Failed to create project');
+      toast.error('Failed to create project: ' + (error.response?.data?.error || error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">

@@ -54,85 +54,98 @@ function App() {
 
   const connectWallet = async () => {
     if (!window.ethereum) {
-      alert('Please install MetaMask to use this application');
+      alert('Please install MetaMask to use this application.\n\nDownload at: https://metamask.io');
       return;
     }
 
     try {
       setIsConnecting(true);
-      
-      // FIXED: Use ethers v5 API - providers.Web3Provider instead of BrowserProvider
-      const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
-      
-      // Request account access
-      await window.ethereum.request({ method: 'eth_requestAccounts' });
-      
-      // Get signer and address
-      const web3Signer = web3Provider.getSigner();
-      const address = await web3Signer.getAddress();
-      const network = await web3Provider.getNetwork();
 
-      setProvider(web3Provider);
+      // Request account access first
+      await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+      // Use ethers v5 API
+      const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+      const network = await web3Provider.getNetwork();
+      const currentChainId = Number(network.chainId);
+
+      console.log('🔗 Current chain:', currentChainId);
+
+      // If not on localhost (1337), switch to it
+      if (currentChainId !== 1337) {
+        toast.info('Switching to Hardhat Local Network…');
+        const switched = await switchToLocalhost();
+        if (!switched) return;
+        // Re-init provider after switch
+        await new Promise(r => setTimeout(r, 500));
+      }
+
+      const finalProvider = new ethers.providers.Web3Provider(window.ethereum);
+      const web3Signer = finalProvider.getSigner();
+      const address = await web3Signer.getAddress();
+      const finalNetwork = await finalProvider.getNetwork();
+
+      setProvider(finalProvider);
       setSigner(web3Signer);
       setAccount(address);
-      setChainId(Number(network.chainId));
+      setChainId(Number(finalNetwork.chainId));
 
       console.log('✅ Wallet connected:', address);
-      console.log('📡 Network:', network.name, '(Chain ID:', network.chainId, ')');
+      console.log('📡 Network: Hardhat Localhost (Chain ID:', finalNetwork.chainId, ')');
+      toast.success('Wallet connected!', { description: address.slice(0, 10) + '…' + address.slice(-6) });
 
-      // Optional: Check if on specific network (currently set to Mumbai - you can change or remove this)
-      // For localhost testing, comment out the network check
-      // if (Number(network.chainId) !== 80001) {
-      //   alert('Please switch to Polygon Mumbai testnet');
-      //   await switchToMumbai();
-      // }
     } catch (error) {
       console.error('❌ Error connecting wallet:', error);
-      
       if (error.code === 4001) {
-        alert('MetaMask connection request was rejected');
+        toast.error('MetaMask connection rejected by user');
       } else if (error.code === -32002) {
-        alert('Please check MetaMask - there is already a pending connection request');
+        toast.error('MetaMask already has a pending request — check the extension');
       } else {
-        alert('Failed to connect wallet: ' + error.message);
+        toast.error('Failed to connect: ' + (error.message || 'Unknown error'));
       }
     } finally {
       setIsConnecting(false);
     }
   };
 
-  const switchToMumbai = async () => {
+  const switchToLocalhost = async () => {
+    const LOCALHOST_CHAIN_ID = '0x539'; // 1337 in hex
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x13881' }], // 80001 in hex
+        params: [{ chainId: LOCALHOST_CHAIN_ID }],
       });
+      return true;
     } catch (switchError) {
-      // Chain not added, add it
-      if (switchError.code === 4902) {
+      // Chain not added yet — add it
+      if (switchError.code === 4902 || switchError.code === -32603) {
         try {
           await window.ethereum.request({
             method: 'wallet_addEthereumChain',
-            params: [
-              {
-                chainId: '0x13881',
-                chainName: 'Polygon Mumbai',
-                nativeCurrency: {
-                  name: 'MATIC',
-                  symbol: 'MATIC',
-                  decimals: 18,
-                },
-                rpcUrls: ['https://rpc-mumbai.maticvigil.com'],
-                blockExplorerUrls: ['https://mumbai.polygonscan.com/'],
-              },
-            ],
+            params: [{
+              chainId: LOCALHOST_CHAIN_ID,
+              chainName: 'Hardhat Localhost',
+              nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+              rpcUrls: ['http://127.0.0.1:8545'],
+              blockExplorerUrls: [],
+            }],
           });
+          return true;
         } catch (addError) {
-          console.error('Error adding Mumbai network:', addError);
+          console.error('Error adding localhost network:', addError);
+          toast.error('Could not add Hardhat network to MetaMask.\nAdd it manually: RPC http://127.0.0.1:8545, Chain ID 1337');
+          return false;
         }
+      } else if (switchError.code === 4001) {
+        toast.error('Network switch rejected');
+        return false;
+      } else {
+        toast.error('Failed to switch network: ' + switchError.message);
+        return false;
       }
     }
   };
+
 
   const disconnectWallet = () => {
     setAccount(null);
