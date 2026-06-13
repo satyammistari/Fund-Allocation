@@ -296,7 +296,6 @@ const Login = ({ onLogin }) => {
         {/* Footer */}
         <div className="text-center text-sm text-slate-500">
           <p>🔐 Secure authentication powered by blockchain technology</p>
-          <p className="mt-2">Smart India Hackathon 2025 • Municipal Fund Transparency System</p>
         </div>
       </div>
     </div>
